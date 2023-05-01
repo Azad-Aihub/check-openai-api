@@ -1,4 +1,4 @@
-const html = `<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8">
@@ -44,6 +44,10 @@ const html = `<!DOCTYPE html>
                 <td id="used"></td>
               </tr>
               <tr>
+              <th>剩余额度</th>
+              <td id="remaining"></td>
+              </tr>
+              <tr>
                 <th>账户额度</th>
                 <td id="subscription"></td>
               </tr>
@@ -57,14 +61,14 @@ const html = `<!DOCTYPE html>
             const form = document.querySelector('form')
             const apiKeyInput = document.querySelector('#api-key')
             const resultTable = document.querySelector('#result')
- 
+ 
             form.addEventListener('submit', async (event) => {
               event.preventDefault()
- 
+ 
               const apiKey = apiKeyInput.value
               const response = await fetch('/api?key=' + apiKey)
               const data = await response.json()
- 
+ 
               if (data.error) {
                 const errorMessage = document.querySelector('#error-message')
                 errorMessage.innerText = data.error.message || '出错了'
@@ -78,75 +82,14 @@ const html = `<!DOCTYPE html>
                 document.querySelector('#system_hard_limit_usd').innerText = data.system_hard_limit_usd
                 document.querySelector('#used').innerText = data.used
                 document.querySelector('#subscription').innerText = data.subscription
+                document.querySelector('#remaining').innerText = data.remaining;
                 resultTable.classList.remove('d-none')
               }
             })
- 
+ 
           </script>
         </div>
       </div>
     </div>
   </body>
 </html>
- 
-`
- 
-addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request))
-})
- 
-async function handleRequest(request) {
-  const url = new URL(request.url)
-  if (url.pathname === '/api') {
-    const apiKey = url.searchParams.get('key')
-    if (!apiKey) {
-      return new Response('缺少API密钥', { status: 400 })
-    }
- 
-    const queryUrl = 'https://api.openai.com/dashboard/billing/subscription'
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.64',
-      'Authorization': `Bearer ${apiKey}`,
-      'Accept': '*/*',
-      'Host': 'api.openai.com',
-      'Connection': 'keep-alive'
-    }
- 
-    try {
-      const response = await fetch(queryUrl, { headers })
-      const data = await response.json()
-      const formatDate = (d) =>
-        `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d
-          .getDate()
-          .toString()
-          .padStart(2, '0')}`;
-      const ONE_DAY = 24 * 60 * 60 * 1000;
-      const now = new Date(Date.now() + ONE_DAY);
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const startDate = formatDate(startOfMonth);
-      const endDate = formatDate(now);
- 
-      const usageResponse = await fetch(`https://api.openai.com/dashboard/billing/usage?start_date=${startDate}&end_date=${endDate}`, { headers })
-      const usageData = await usageResponse.json()
- 
-      const used = usageData.total_usage ? Math.round(usageData.total_usage) / 100 : 0
-      const subscription = data.hard_limit_usd ? Math.round(data.hard_limit_usd * 100) / 100 : 0
-      data.used = used
-      data.subscription = subscription
- 
-      return new Response(JSON.stringify(data, null, 2), { status: 200 })
-    } catch (err) {
-      if (data.error) {
-        return new Response(JSON.stringify({ error: '出错了' }), { status: 500 })
-      }
- 
-    }
-  }
- 
-  return new Response(html, {
-    headers: {
-      'content-type': 'text/html;charset=UTF-8',
-    },
-  })
-}
- 
